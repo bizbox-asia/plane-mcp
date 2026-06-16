@@ -51,8 +51,8 @@ PLATFORMS := \
     linux/amd64      \
     linux/arm64      \
     linux/386        \
-    windows/amd64/ \
-    windows/386/  \
+    windows/amd64 \
+    windows/386  \
     freebsd/amd64    \
     freebsd/arm64
 
