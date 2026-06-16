@@ -155,7 +155,7 @@ if [[ "$SKIP_BUILD" == true ]]; then
     [[ -d "$RELEASE_DIR" ]] || die "$RELEASE_DIR not found. Run without --skip-build first."
 else
     log "Building release artifacts (this takes ~2 min for 9 platforms)"
-    make release VERSION="${VERSION#v}"
+    make release VERSION="$VERSION"
     ok "build complete: $RELEASE_DIR"
 fi
 

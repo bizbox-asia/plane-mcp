@@ -1,0 +1,11 @@
+# Build artifacts
+/bin/
+/dist/
+
+# Test artifacts
+/coverage.out
+/coverage.html
+
+# Local env
+.env
+.env.local
