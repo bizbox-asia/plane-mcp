@@ -172,19 +172,26 @@ fi
 # ---- create release ----
 log "Creating GitHub release $VERSION"
 
-# Build gh release create args
+# Stage assets with unique basenames. GitHub uses the file's basename
+# as the asset name; the `path#label` syntax only sets a display label,
+# not the name, so without staging all 9 binaries collide as "plane-mcp"
+# and the second upload fails with HTTP 404.
+STAGING_DIR=$(mktemp -d)
+trap 'rm -rf "$STAGING_DIR"' EXIT
+cp "$RELEASE_DIR/checksums.txt" "$STAGING_DIR/"
+cp "$RELEASE_DIR/darwin/amd64/plane-mcp"        "$STAGING_DIR/plane-mcp_${VERSION#v}_darwin_amd64"
+cp "$RELEASE_DIR/darwin/arm64/plane-mcp"        "$STAGING_DIR/plane-mcp_${VERSION#v}_darwin_arm64"
+cp "$RELEASE_DIR/freebsd/amd64/plane-mcp"       "$STAGING_DIR/plane-mcp_${VERSION#v}_freebsd_amd64"
+cp "$RELEASE_DIR/freebsd/arm64/plane-mcp"       "$STAGING_DIR/plane-mcp_${VERSION#v}_freebsd_arm64"
+cp "$RELEASE_DIR/linux/386/plane-mcp"           "$STAGING_DIR/plane-mcp_${VERSION#v}_linux_386"
+cp "$RELEASE_DIR/linux/amd64/plane-mcp"         "$STAGING_DIR/plane-mcp_${VERSION#v}_linux_amd64"
+cp "$RELEASE_DIR/linux/arm64/plane-mcp"         "$STAGING_DIR/plane-mcp_${VERSION#v}_linux_arm64"
+cp "$RELEASE_DIR/windows/386/plane-mcp.exe"     "$STAGING_DIR/plane-mcp_${VERSION#v}_windows_386.exe"
+cp "$RELEASE_DIR/windows/amd64/plane-mcp.exe"   "$STAGING_DIR/plane-mcp_${VERSION#v}_windows_amd64.exe"
+
 GH_ARGS=(
     "$VERSION"
-    "$RELEASE_DIR/checksums.txt"
-    "$RELEASE_DIR/darwin/amd64/plane-mcp"
-    "$RELEASE_DIR/darwin/arm64/plane-mcp"
-    "$RELEASE_DIR/freebsd/amd64/plane-mcp"
-    "$RELEASE_DIR/freebsd/arm64/plane-mcp"
-    "$RELEASE_DIR/linux/386/plane-mcp"
-    "$RELEASE_DIR/linux/amd64/plane-mcp"
-    "$RELEASE_DIR/linux/arm64/plane-mcp"
-    "$RELEASE_DIR/windows/386/plane-mcp.exe"
-    "$RELEASE_DIR/windows/amd64/plane-mcp.exe"
+    "$STAGING_DIR"/*
 )
 [[ -n "$REPO_FLAG" ]] && GH_ARGS+=($REPO_FLAG)
 [[ "$PRERELEASE" == true ]] && GH_ARGS+=(--prerelease)
