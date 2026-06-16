@@ -1,9 +1,0 @@
-636cd81e8539bb4b50574a8bb68673201b2c5ebba3e26e0d05de81d094eeeff0  ./darwin/amd64/plane-mcp
-0fcd625b0cb703a3433297ea76799ec4142433795b9059be1d8a89bc32afc795  ./darwin/arm64/plane-mcp
-6e444bd92e24daccf4ec87d0403c49bab05cc9c0fd068fdc37447e5c1d7576b2  ./freebsd/amd64/plane-mcp
-a83acf535d6ba1ce0229d435930f6e0d50abd56100961780a22a72e3d4f25104  ./freebsd/arm64/plane-mcp
-5c2244e14f9a46d96bdc60db9aa6da8749a31c8a5d97f071e2534b9a718d0869  ./linux/386/plane-mcp
-4b43fd8c87ce4da38bb48feac4d7a8c1d0d4b13d6db8bafba1e443f0b348da34  ./linux/amd64/plane-mcp
-9db831b0de1cfef4f68df6fd580e418909367c6c08b76f5fbfc42752869155b7  ./linux/arm64/plane-mcp
-728cb4948c085b961e67fbc8de94dc17b8b0e1e5cec95f5e627776eb8dbd0813  ./windows/386/.exe/plane-mcp.exe
-5b58a1c766882aadd25c1432032c3178565c199fd16b95cd8d80635fbbbbd8df  ./windows/amd64/.exe/plane-mcp.exe

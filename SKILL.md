@@ -235,7 +235,7 @@ model. No Python/Node.js dependency — the binary is self-contained.
 ### From source
 
 ```bash
-git clone https://github.com/bizbox-asia/plane-mcp
+git clone https://github.com/your-org/plane-mcp
 cd plane-mcp
 make build              # current OS/arch → ./bin/plane-mcp
 make build-all          # 9 platforms (linux/darwin/windows/freebsd)
@@ -262,6 +262,33 @@ reproducible. Sizes are ~7-8 MB each.
 shasum -a 256 -c checksums.txt
 ./plane-mcp -version
 ```
+
+## Release to GitHub
+
+`scripts/release.sh` (or `make github-release VERSION=v1.2.3`) builds
+all platforms and publishes them to a GitHub release via the
+[`gh` CLI](https://cli.github.com/).
+
+```bash
+# One-time setup
+brew install gh && gh auth login
+
+# Release workflow
+make github-release-dry-run VERSION=v1.2.3   # build, don't publish
+make github-release VERSION=v1.2.3           # build + publish
+make github-release-prerelease VERSION=v1.2.3-rc1
+
+# Or call the script directly for more control
+./scripts/release.sh v1.2.3 --notes-file CHANGELOG.md
+./scripts/release.sh v1.2.3 --draft                    # save as draft
+./scripts/release.sh v1.2.3 --repo your-org/plane-mcp  # cross-repo
+```
+
+The script enforces pre-flight checks (clean tree, valid semver, `gh`
+auth, no existing release) and uploads all 9 platform binaries plus
+`checksums.txt` as release assets.
+
+Run `./scripts/release.sh --help` for the full flag list.
 
 ## Tips and gotchas
 

@@ -28,7 +28,7 @@ make build
 # Cross-compile a single target
 make dist/linux/amd64/plane-mcp
 make dist/darwin/arm64/plane-mcp
-make dist/windows/amd64/.exe/plane-mcp
+make dist/windows/amd64/plane-mcp
 
 # Build all 9 supported platforms
 make build-all
@@ -51,6 +51,81 @@ All binaries are statically linked (`CGO_ENABLED=0`), stripped
 
 To add a new target, append `OS/ARCH` to the `PLATFORMS` list in the
 Makefile. For Windows-style extensions, append `OS/ARCH/.exe`.
+
+## Release to GitHub
+
+The `scripts/release.sh` script wraps `make release` and publishes
+the artifacts to a GitHub release via the [`gh` CLI](https://cli.github.com/).
+
+### One-time setup
+
+```bash
+# Install the gh CLI
+brew install gh        # macOS
+# or: https://cli.github.com/manual/installation
+
+# Authenticate
+gh auth login
+```
+
+### Release workflow
+
+```bash
+# 1. Make sure your changes are committed and pushed
+git status              # should be clean
+git push origin main
+
+# 2. Dry-run first to verify what will be uploaded
+make github-release-dry-run VERSION=v1.2.3
+
+# 3. Publish for real
+make github-release VERSION=v1.2.3
+
+# Or call the script directly for more control
+./scripts/release.sh v1.2.3 --notes-file CHANGELOG.md
+./scripts/release.sh v1.2.3-rc1 --prerelease
+./scripts/release.sh v1.2.3 --draft                    # save as draft
+./scripts/release.sh v1.2.3 --repo your-org/plane-mcp  # cross-repo
+```
+
+The script:
+1. Validates inputs (semver, `gh` auth, clean tree, no existing release)
+2. Runs `make release` to build all 9 platforms + SHA-256 checksums
+3. Creates a GitHub release with the version tag
+4. Uploads all binaries + `checksums.txt` as release assets
+5. Prints the release URL
+
+### Flags
+
+| Flag | Purpose |
+|---|---|
+| `--repo OWNER/NAME` | Publish to a specific repo (default: current repo) |
+| `--prerelease` | Mark the release as a pre-release |
+| `--draft` | Create as a draft (not visible to users until published) |
+| `--dry-run` | Build but don't upload |
+| `--skip-build` | Use existing `dist/release-<version>/` (no rebuild) |
+| `--notes-file PATH` | Release notes from a file (default: auto-generated) |
+| `--no-color` | Disable colored output |
+
+### Pre-flight checks
+
+The script refuses to run if:
+- `gh` is not installed or not authenticated
+- The working tree has uncommitted changes
+- A GitHub release with that version already exists
+- A local git tag with that version already exists
+- The version is not valid semver
+
+### Verifying a release
+
+```bash
+# Download and verify checksums
+gh release download v1.2.3
+shasum -a 256 -c checksums.txt
+
+# Or verify in one step
+gh release verify v1.2.3
+```
 
 ## Run (standalone)
 

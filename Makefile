@@ -1,15 +1,18 @@
 # Makefile for plane-mcp
 #
 # Targets:
-#   make build          - Build for current OS/arch
-#   make build-all      - Build for all supported platforms
-#   make release        - Build all platforms + checksums
-#   make test           - Run unit tests
-#   make smoke          - Run integration smoke test (requires API key)
-#   make clean          - Remove built binaries
-#   make install        - Install to $GOPATH/bin
-#   make fmt            - Format code
-#   make lint           - Run go vet
+#   make build                  - Build for current OS/arch
+#   make build-all              - Build for all supported platforms
+#   make release                - Build all platforms + checksums (local)
+#   make github-release         - Build + publish to GitHub (needs VERSION=v1.2.3)
+#   make github-release-dry-run - Build only, don't publish
+#   make github-release-prerelease - Publish as pre-release
+#   make test                   - Run unit tests
+#   make smoke                  - Run integration smoke test (requires API key)
+#   make clean                  - Remove built binaries
+#   make install                - Install to $GOPATH/bin
+#   make fmt                    - Format code
+#   make lint                   - Run go vet
 #
 # Environment variables:
 #   VERSION  - Release version (default: git describe)
@@ -48,8 +51,8 @@ PLATFORMS := \
     linux/amd64      \
     linux/arm64      \
     linux/386        \
-    windows/amd64/.exe \
-    windows/386/.exe  \
+    windows/amd64/ \
+    windows/386/  \
     freebsd/amd64    \
     freebsd/arm64
 
@@ -95,9 +98,9 @@ build-all:
 
 # Pattern rule: dist/<os>/<arch>[/<ext>]/<binary>
 # Matches: dist/darwin/arm64/plane-mcp
-#          dist/windows/amd64/.exe/plane-mcp
+#          dist/windows/amd64/plane-mc
 # Usage: make dist/darwin/arm64/plane-mcp
-#        make dist/windows/amd64/.exe/plane-mcp
+#        make dist/windows/amd64/plane-mcp
 .PHONY: dist/%/$(BINARY)
 dist/%/$(BINARY): $(SOURCES) go.mod go.sum
 	@$(eval OS_ARCH := $(subst dist/,,$(@D)))
@@ -141,6 +144,33 @@ release: clean-release
 	@echo "==> Release built: $(RELEASE_DIR)/"
 	@ls -la $(RELEASE_DIR)/
 	@find $(RELEASE_DIR) -type f \( -name '$(BINARY)*' -o -name 'checksums.txt' \) | sort
+
+# Build + publish to GitHub via scripts/release.sh.
+# Usage:
+#   make github-release VERSION=v1.2.3
+#   make github-release-dry-run VERSION=v1.2.3
+.PHONY: github-release github-release-dry-run github-release-prerelease
+github-release:
+	@if [ -z "$(VERSION)" ] || echo "$(VERSION)" | grep -qE '^dev$$|^unknown$$'; then \
+		echo "ERROR: VERSION must be set to a real semver (e.g. VERSION=v1.2.3)" >&2; \
+		echo "Current VERSION=$(VERSION)" >&2; \
+		exit 1; \
+	fi
+	@./scripts/release.sh $(VERSION)
+
+github-release-dry-run:
+	@if [ -z "$(VERSION)" ] || echo "$(VERSION)" | grep -qE '^dev$$|^unknown$$'; then \
+		echo "ERROR: VERSION must be set (e.g. VERSION=v1.2.3)" >&2; \
+		exit 1; \
+	fi
+	@./scripts/release.sh $(VERSION) --dry-run
+
+github-release-prerelease:
+	@if [ -z "$(VERSION)" ] || echo "$(VERSION)" | grep -qE '^dev$$|^unknown$$'; then \
+		echo "ERROR: VERSION must be set (e.g. VERSION=v1.2.3-rc1)" >&2; \
+		exit 1; \
+	fi
+	@./scripts/release.sh $(VERSION) --prerelease
 
 .PHONY: clean-release
 clean-release:
@@ -230,8 +260,14 @@ help:
 	@echo "Build targets:"
 	@echo "  build          Build for current OS/arch"
 	@echo "  build-all      Build for all $(words $(PLATFORMS)) platforms"
-	@echo "  release        Build release archives + checksums"
+	@echo "  release        Build release archives + checksums (local)"
 	@echo "  install        Install to \$$GOPATH/bin"
+	@echo ""
+	@echo "Release targets (publish to GitHub via gh CLI):"
+	@echo "  github-release              Build + publish (needs VERSION=v1.2.3)"
+	@echo "  github-release-dry-run      Build only, don't publish"
+	@echo "  github-release-prerelease   Publish as pre-release"
+	@echo "  (or run scripts/release.sh directly for full control)"
 	@echo ""
 	@echo "Test targets:"
 	@echo "  test           Run unit tests"
