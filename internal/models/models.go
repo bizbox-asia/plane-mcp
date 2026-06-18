@@ -135,3 +135,25 @@ type Comment struct {
 type CommentCreate struct {
 	CommentHTML string `json:"comment_html"`
 }
+
+// ProjectCreate is the payload for creating a project.
+type ProjectCreate struct {
+	Name        string `json:"name"`
+	Identifier  string `json:"identifier"`
+	Description string `json:"description,omitempty"`
+	Network     int    `json:"network,omitempty"`
+}
+
+// ModuleCreate is the payload for creating a module.
+type ModuleCreate struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Members     []string `json:"members,omitempty"`
+}
+
+// CycleCreate is the payload for creating a cycle.
+type CycleCreate struct {
+	Name      string `json:"name"`
+	StartDate string `json:"start_date,omitempty"`
+	EndDate   string `json:"end_date,omitempty"`
+}

@@ -233,6 +233,43 @@ func (o *Ops) ListModules(ctx context.Context, workspaceSlug, projectID string) 
 	return resp.Results, nil
 }
 
+// CreateProject creates a new project in the workspace.
+func (o *Ops) CreateProject(ctx context.Context, workspaceSlug string, input models.ProjectCreate) (*models.Project, error) {
+	var p models.Project
+	_, _, err := o.client.Do(ctx, "POST",
+		fmt.Sprintf("workspaces/%s/projects/", workspaceSlug),
+		nil, input, &p)
+	if err != nil {
+		return nil, fmt.Errorf("ops: create project: %w", err)
+	}
+	o.cacheProject(&p)
+	return &p, nil
+}
+
+// CreateModule creates a new module in a project.
+func (o *Ops) CreateModule(ctx context.Context, workspaceSlug, projectID string, input models.ModuleCreate) (*models.Module, error) {
+	var m models.Module
+	_, _, err := o.client.Do(ctx, "POST",
+		fmt.Sprintf("workspaces/%s/projects/%s/modules/", workspaceSlug, projectID),
+		nil, input, &m)
+	if err != nil {
+		return nil, fmt.Errorf("ops: create module: %w", err)
+	}
+	return &m, nil
+}
+
+// CreateCycle creates a new cycle in a project.
+func (o *Ops) CreateCycle(ctx context.Context, workspaceSlug, projectID string, input models.CycleCreate) (*models.Cycle, error) {
+	var c models.Cycle
+	_, _, err := o.client.Do(ctx, "POST",
+		fmt.Sprintf("workspaces/%s/projects/%s/cycles/", workspaceSlug, projectID),
+		nil, input, &c)
+	if err != nil {
+		return nil, fmt.Errorf("ops: create cycle: %w", err)
+	}
+	return &c, nil
+}
+
 // ListCycles returns all cycles in a project.
 func (o *Ops) ListCycles(ctx context.Context, workspaceSlug, projectID string) ([]models.Cycle, error) {
 	var resp client.ListResponse[models.Cycle]

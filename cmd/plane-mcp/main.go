@@ -180,6 +180,10 @@ Commands:
   state <PROJECT> <SEQ> <NAME>   Change a work item's state by name
   comment <PROJECT> <SEQ> <TEXT>  Add a comment to a work item
   update <PROJECT> <SEQ> [flags]  Update fields on a work item
+  create <PROJECT> -name "..." [flags]   Create a new work item
+  create-project -name "..." -identifier "..." [flags]  Create a new project
+  create-module <PROJECT> -name "..." [flags]  Create a new module
+  create-cycle <PROJECT> -name "..." [flags]  Create a new cycle
   health                    Check the connection to Plane
 
 Examples:
@@ -197,6 +201,18 @@ Examples:
 
   # Update title and priority
   plane-mcp update SAGA 5 -title "New title" -priority high
+
+  # Create a new work item (HTML description)
+  plane-mcp create CRM -name "New ticket" -priority high -description-html "<p>Body</p>"
+
+  # Create a new project
+  plane-mcp create-project -name "My Project" -identifier "MYPRJ" -description "Project description"
+
+  # Create a module in a project
+  plane-mcp create-module SAGA -name "Backend" -description "Backend tasks"
+
+  # Create a sprint cycle
+  plane-mcp create-cycle SAGA -name "Sprint 1" -start-date 2025-01-01 -end-date 2025-01-14
 
   # Start the MCP server (the default behavior)
   plane-mcp mcp

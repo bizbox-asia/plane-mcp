@@ -66,6 +66,14 @@ func runCLI(cfg cliConfig, subCmd string, args []string, errOut io.Writer) int {
 		return cmdComment(ctx, o, cfg, w, args, errOut)
 	case "update":
 		return cmdUpdate(ctx, o, cfg, w, args, errOut)
+	case "create":
+		return cmdCreate(ctx, o, cfg, w, args, errOut)
+	case "create-project":
+		return cmdCreateProject(ctx, o, cfg, w, args, errOut)
+	case "create-module":
+		return cmdCreateModule(ctx, o, cfg, w, args, errOut)
+	case "create-cycle":
+		return cmdCreateCycle(ctx, o, cfg, w, args, errOut)
 	case "health":
 		return cmdHealth(ctx, o, cfg, w, errOut)
 	default:
@@ -395,6 +403,103 @@ func cmdUpdate(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, args [
 	return 0
 }
 
+func cmdCreate(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, args []string, errOut io.Writer) int {
+	projectID, err := requireArg(args, 0, "create <PROJECT> -name \"...\" [flags]")
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
+
+	fs := flag.NewFlagSet("create", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	name := fs.String("name", "", "Work item title (required)")
+	descriptionHTML := fs.String("description-html", "", "Description as HTML")
+	description := fs.String("description", "", "Description as plain text (auto-wrapped in <p>)")
+	priority := fs.String("priority", "", "Priority (urgent|high|medium|low|none)")
+	state := fs.String("state", "", "Initial state name (e.g. Backlog, Todo, In Progress)")
+	targetDate := fs.String("target-date", "", "Target date (YYYY-MM-DD)")
+	startDate := fs.String("start-date", "", "Start date (YYYY-MM-DD)")
+	assignees := fs.String("assignees", "", "Comma-separated assignee UUIDs")
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+
+	if *name == "" {
+		fmt.Fprintln(errOut, "plane-mcp: create: -name is required")
+		return 2
+	}
+
+	if *description != "" && *descriptionHTML != "" {
+		fmt.Fprintln(errOut, "plane-mcp: create: use either -description (plain) OR -description-html, not both")
+		return 2
+	}
+
+	p, err := o.GetProjectByIdentifier(ctx, cfg.Workspace, projectID)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: get project: %v\n", err)
+		return 1
+	}
+
+	input := models.WorkItemCreate{
+		Name: *name,
+	}
+	if *descriptionHTML != "" {
+		input.DescriptionHTML = *descriptionHTML
+	} else if *description != "" {
+		input.DescriptionHTML = "<p>" + escapeHTML(*description) + "</p>"
+	}
+	if *priority != "" {
+		input.Priority = *priority
+	}
+	if *targetDate != "" {
+		input.TargetDate = *targetDate
+	}
+	if *startDate != "" {
+		input.StartDate = *startDate
+	}
+	if *assignees != "" {
+		ids := strings.Split(*assignees, ",")
+		cleaned := make([]string, 0, len(ids))
+		for _, id := range ids {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				cleaned = append(cleaned, id)
+			}
+		}
+		input.Assignees = cleaned
+	}
+	if *state != "" {
+		states, err := o.ListStates(ctx, cfg.Workspace, p.ID)
+		if err != nil {
+			fmt.Fprintf(errOut, "plane-mcp: list states: %v\n", err)
+			return 1
+		}
+		stateID := ""
+		for _, s := range states {
+			if strings.EqualFold(s.Name, *state) {
+				stateID = s.ID
+				break
+			}
+		}
+		if stateID == "" {
+			fmt.Fprintf(errOut, "plane-mcp: state %q not found in project %s\n", *state, projectID)
+			return 1
+		}
+		input.State = stateID
+	}
+
+	wi, err := o.CreateWorkItem(ctx, cfg.Workspace, p.ID, input)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: create item: %v\n", err)
+		return 1
+	}
+	if cfg.Format == "json" {
+		return w.writeJSON(wi)
+	}
+	fmt.Fprintf(w.out, "created %s-%d (id=%s)\n", projectID, wi.SequenceID, wi.ID)
+	return 0
+}
+
 func cmdHealth(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, errOut io.Writer) int {
 	// Cheap liveness: just list projects with per_page=1.
 	projects, err := o.ListProjects(ctx, cfg.Workspace)
@@ -420,6 +525,149 @@ func cmdHealth(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, errOut
 	fmt.Fprintf(w.out, "base_url       %s\n", cfg.BaseURL)
 	fmt.Fprintf(w.out, "project_count  %d\n", len(projects))
 	fmt.Fprintf(w.out, "version        %s\n", cfg.Version)
+	return 0
+}
+
+func cmdCreateProject(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, args []string, errOut io.Writer) int {
+	fs := flag.NewFlagSet("create-project", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	name := fs.String("name", "", "Project name (required)")
+	identifier := fs.String("identifier", "", "Short identifier, e.g. SAGA (required)")
+	description := fs.String("description", "", "Project description")
+	network := fs.Int("network", 0, "Network: 0=secret, 1=private, 2=public")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	if *name == "" || *identifier == "" {
+		fmt.Fprintln(errOut, "plane-mcp: create-project: -name and -identifier are required")
+		return 2
+	}
+
+	input := models.ProjectCreate{
+		Name:       *name,
+		Identifier: *identifier,
+		Network:    *network,
+	}
+	if *description != "" {
+		input.Description = *description
+	}
+
+	p, err := o.CreateProject(ctx, cfg.Workspace, input)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: create project: %v\n", err)
+		return 1
+	}
+	if cfg.Format == "json" {
+		return w.writeJSON(p)
+	}
+	fmt.Fprintf(w.out, "created project %s (id=%s)\n", p.Identifier, p.ID)
+	return 0
+}
+
+func cmdCreateModule(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, args []string, errOut io.Writer) int {
+	projectID, err := requireArg(args, 0, "create-module <PROJECT> -name \"...\" [flags]")
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
+
+	fs := flag.NewFlagSet("create-module", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	name := fs.String("name", "", "Module name (required)")
+	description := fs.String("description", "", "Module description")
+	members := fs.String("members", "", "Comma-separated member UUIDs")
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+
+	if *name == "" {
+		fmt.Fprintln(errOut, "plane-mcp: create-module: -name is required")
+		return 2
+	}
+
+	p, err := o.GetProjectByIdentifier(ctx, cfg.Workspace, projectID)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: get project: %v\n", err)
+		return 1
+	}
+
+	input := models.ModuleCreate{
+		Name: *name,
+	}
+	if *description != "" {
+		input.Description = *description
+	}
+	if *members != "" {
+		ids := strings.Split(*members, ",")
+		cleaned := make([]string, 0, len(ids))
+		for _, id := range ids {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				cleaned = append(cleaned, id)
+			}
+		}
+		input.Members = cleaned
+	}
+
+	m, err := o.CreateModule(ctx, cfg.Workspace, p.ID, input)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: create module: %v\n", err)
+		return 1
+	}
+	if cfg.Format == "json" {
+		return w.writeJSON(m)
+	}
+	fmt.Fprintf(w.out, "created module %q in %s (id=%s)\n", m.Name, projectID, m.ID)
+	return 0
+}
+
+func cmdCreateCycle(ctx context.Context, o *ops.Ops, cfg cliConfig, w *writer, args []string, errOut io.Writer) int {
+	projectID, err := requireArg(args, 0, "create-cycle <PROJECT> -name \"...\" [flags]")
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
+
+	fs := flag.NewFlagSet("create-cycle", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	name := fs.String("name", "", "Cycle name (required)")
+	startDate := fs.String("start-date", "", "Start date (YYYY-MM-DD)")
+	endDate := fs.String("end-date", "", "End date (YYYY-MM-DD)")
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+
+	if *name == "" {
+		fmt.Fprintln(errOut, "plane-mcp: create-cycle: -name is required")
+		return 2
+	}
+
+	p, err := o.GetProjectByIdentifier(ctx, cfg.Workspace, projectID)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: get project: %v\n", err)
+		return 1
+	}
+
+	input := models.CycleCreate{
+		Name: *name,
+	}
+	if *startDate != "" {
+		input.StartDate = *startDate
+	}
+	if *endDate != "" {
+		input.EndDate = *endDate
+	}
+
+	c, err := o.CreateCycle(ctx, cfg.Workspace, p.ID, input)
+	if err != nil {
+		fmt.Fprintf(errOut, "plane-mcp: create cycle: %v\n", err)
+		return 1
+	}
+	if cfg.Format == "json" {
+		return w.writeJSON(c)
+	}
+	fmt.Fprintf(w.out, "created cycle %q in %s (id=%s)\n", c.Name, projectID, c.ID)
 	return 0
 }
 
