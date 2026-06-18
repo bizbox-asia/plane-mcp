@@ -1,6 +1,6 @@
 ---
 name: plane-mcp
-description: "Plane project management — work items, states, projects, modules, cycles, comments. Use this skill when the user asks about Plane work items, moving an issue to a state (In Progress, In Review, Done), adding a completion comment, listing projects, or looking up a work item by short-id sequence. Provides 13 MCP tools (server mode) plus a CLI (shell/scripts). Triggers: 'plane', 'plane work item', 'move to in review', 'mark as done', 'add comment to issue', 'list projects', 'work item', 'issue tracker', 'create work item', 'update work item', 'plane state', 'plane project'."
+description: "Plane project management — work items, states, projects, modules, cycles, comments. Use this skill when the user asks about Plane work items, moving an issue to a state (In Progress, In Review, Done), adding a completion comment, listing projects, or looking up a work item by short-id sequence. Provides 16 MCP tools (server mode) plus a CLI (shell/scripts). Triggers: 'plane', 'plane work item', 'move to in review', 'mark as done', 'add comment to issue', 'list projects', 'work item', 'issue tracker', 'create work item', 'update work item', 'plane state', 'plane project', 'create project', 'create module', 'create cycle'."
 ---
 
 # plane-mcp
@@ -11,7 +11,7 @@ with a Go binary that starts in <50ms (vs ~500ms for `npx` subprocess).
 
 Runs in two modes from the same binary:
 
-1. **MCP server** (default) — exposes 13 focused tools over stdio for
+1. **MCP server** (default) — exposes 16 focused tools over stdio for
    AI agents (Claude Code, opencode, Cursor, etc.)
 2. **CLI** — single-shot commands for humans and shell scripts
 
@@ -25,8 +25,12 @@ Reach for `plane-mcp` when the user wants to:
 - **Move** a work item through its state machine: "mark as In Review", "move to Done"
 - **Comment** on a work item: "add a comment saying MR opened"
 - **Update** fields: "change the priority to urgent", "set the target date to 2026-07-01"
+- **Create** a work item: "create a new issue", "add a task to the backlog"
 - **List** projects or work items: "what projects exist?", "show me all open items"
 - **Discover** states: "what states does this project have?"
+- **Create** a project: "create a new project called X"
+- **Create** a module: "add a module to the project"
+- **Create** a cycle: "create a new sprint"
 - **Health check**: "is the Plane connection working?"
 
 Don't use it for analytics, time tracking, notifications, or OAuth-based
@@ -51,6 +55,9 @@ is for humans and scripts.
 | `list_states` | `project_id` | List states in a project |
 | `list_modules` | `project_id` | List modules |
 | `list_cycles` | `project_id` | List cycles |
+| `create_project` | `name`, `identifier`, optional `description`, `network` | Create a new project |
+| `create_module` | `project_id`, `name`, optional `description`, `members` | Create a new module |
+| `create_cycle` | `project_id`, `name`, optional `start_date`, `end_date` | Create a new cycle |
 | `health` | (none) | Health check + cache stats |
 
 ## CLI reference (use from shell/scripts)
@@ -70,10 +77,16 @@ plane-mcp states <PROJECT_ID>
 plane-mcp health
 
 # Write
+plane-mcp create <PROJECT_ID> -name "New task" -priority high
 plane-mcp state <PROJECT_ID> <SEQ> "In Review"
 plane-mcp comment <PROJECT_ID> <SEQ> "MR opened: https://..."
 plane-mcp update <PROJECT_ID> <SEQ> -priority high -title "New title"
 plane-mcp update <PROJECT_ID> <SEQ> -state "Done" -target-date 2026-07-15
+
+# Create entities
+plane-mcp create-project -name "My Project" -identifier "MYPRJ" -description "..."
+plane-mcp create-module <PROJECT_ID> -name "Backend" -description "..."
+plane-mcp create-cycle <PROJECT_ID> -name "Sprint 1" -start-date 2025-01-01 -end-date 2025-01-14
 
 # Machine-readable (for jq, scripts)
 plane-mcp -format=json item <PROJECT_ID> <SEQ>
@@ -92,7 +105,11 @@ plane-mcp -format=json items <PROJECT_ID> | jq '.[].name'
 | `states` | `<PROJECT_ID>` | List states in a project |
 | `state` | `<PROJECT_ID> <SEQ> <NAME>` | Move to state (looks up state ID by name) |
 | `comment` | `<PROJECT_ID> <SEQ> <TEXT>` | Add an HTML comment |
+| `create` | `<PROJECT_ID> -name "..." [flags]` | Create a new work item |
 | `update` | `<PROJECT_ID> <SEQ> [flags]` | Update fields |
+| `create-project` | `-name "..." -identifier "..." [flags]` | Create a new project |
+| `create-module` | `<PROJECT_ID> -name "..." [flags]` | Create a new module |
+| `create-cycle` | `<PROJECT_ID> -name "..." [flags]` | Create a new cycle |
 | `health` | (none) | Health check |
 
 ### `update` flags
@@ -109,6 +126,44 @@ plane-mcp -format=json items <PROJECT_ID> | jq '.[].name'
 
 Only flags you set are sent. Run `plane-mcp update -h` for the most
 current flag list.
+
+### `create` flags
+
+| Flag | Description |
+|---|---|
+| `-name` | Work item title (required) |
+| `-description` | Description as plain text (auto-wrapped in `<p>`) |
+| `-description-html` | Description as HTML |
+| `-priority` | `urgent`, `high`, `medium`, `low`, or `none` |
+| `-state` | Initial state name (e.g. `Backlog`, `Todo`) |
+| `-target-date` | Target date (`YYYY-MM-DD`) |
+| `-start-date` | Start date (`YYYY-MM-DD`) |
+| `-assignees` | Comma-separated assignee UUIDs |
+
+### `create-project` flags
+
+| Flag | Description |
+|---|---|
+| `-name` | Project display name (required) |
+| `-identifier` | Short ID, e.g. `TOOLS`, `AUDIT` (required, uppercase, 1-10 chars) |
+| `-description` | Project description |
+| `-network` | `0`=secret, `1`=private, `2`=public (default) |
+
+### `create-module` flags
+
+| Flag | Description |
+|---|---|
+| `-name` | Module name (required) |
+| `-description` | Module description |
+| `-members` | Comma-separated member UUIDs |
+
+### `create-cycle` flags
+
+| Flag | Description |
+|---|---|
+| `-name` | Cycle name (required) |
+| `-start-date` | Start date (`YYYY-MM-DD`) |
+| `-end-date` | End date (`YYYY-MM-DD`) |
 
 ### Global flags
 
@@ -196,6 +251,76 @@ list_work_items(project_id=<uuid>, state=<state_id>)
 plane-mcp -format=json items <PROJECT_ID> | jq '[.[] | select(.state_detail.name=="In Review")] | length'
 ```
 
+### 6. Create a new work item
+
+**MCP:**
+```
+create_work_item(
+  project_id=<uuid>,
+  input={
+    "name": "Implement user authentication",
+    "description_html": "<p>Add JWT-based auth</p>",
+    "priority": "high",
+    "state": "<state_id>"
+  }
+)
+```
+
+**CLI:**
+```bash
+plane-mcp create <PROJECT_ID> -name "Implement user authentication" -priority high -state "Backlog"
+```
+
+### 7. Create a new project
+
+**MCP:**
+```
+create_project(
+  name="My New Project",
+  identifier="MYPRJ",
+  description="Project description",
+  network=2
+)
+```
+
+**CLI:**
+```bash
+plane-mcp create-project -name "My New Project" -identifier "MYPRJ" -description "Project description"
+```
+
+### 8. Create a module in a project
+
+**MCP:**
+```
+create_module(
+  project_id=<uuid>,
+  name="Backend",
+  description="Backend development tasks"
+)
+```
+
+**CLI:**
+```bash
+plane-mcp create-module <PROJECT_ID> -name "Backend" -description "Backend development tasks"
+```
+
+### 9. Create a sprint cycle
+
+**MCP:**
+```
+create_cycle(
+  project_id=<uuid>,
+  name="Sprint 1",
+  start_date="2025-01-01",
+  end_date="2025-01-14"
+)
+```
+
+**CLI:**
+```bash
+plane-mcp create-cycle <PROJECT_ID> -name "Sprint 1" -start-date 2025-01-01 -end-date 2025-01-14
+```
+
 ## Configuration
 
 | Env var | Flag | Default | Required |
@@ -227,7 +352,7 @@ add the binary to your MCP config:
 }
 ```
 
-Once the client restarts, the 13 tools above become available to the
+Once the client restarts, the 16 tools above become available to the
 model. No Python/Node.js dependency — the binary is self-contained.
 
 ## Build & install
@@ -332,7 +457,7 @@ in Plane. Every project has a unique 2-6 character prefix.
 |---|---|---|
 | Startup | ~500ms (`npx` subprocess) | ~30ms (compiled binary) |
 | Connection reuse | New TCP per call | Single HTTP client |
-| Tool surface | 100+ tools (Pydantic SDK) | 13 focused tools |
+| Tool surface | 100+ tools (Pydantic SDK) | 16 focused tools |
 | Auth | API key only | API key only |
 | Self-hosted | Yes (env var) | Yes (env var) |
 | OAuth | No | No — use `mcp.plane.so` for OAuth |
@@ -350,7 +475,7 @@ internal/
   client/              # thin HTTP client
   models/              # data types
   ops/                 # high-level operations
-  server/              # MCP server (13 tool handlers)
+  server/              # MCP server (16 tool handlers)
 Makefile               # build / test / release
 ```
 
