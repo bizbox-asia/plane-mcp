@@ -230,7 +230,7 @@ Update `.opencode/opencode.json`:
 }
 ```
 
-## Tools exposed (13)
+## Tools exposed (16)
 
 | Tool | Description |
 |---|---|
@@ -246,6 +246,9 @@ Update `.opencode/opencode.json`:
 | `list_states` | List states in a project |
 | `list_modules` | List modules in a project |
 | `list_cycles` | List cycles in a project |
+| `create_project` | Create a new project in the workspace |
+| `create_module` | Create a new module in a project |
+| `create_cycle` | Create a new cycle in a project |
 | `health` | Health check (workspace, cache stats, timestamp) |
 
 ## Architecture
@@ -259,7 +262,7 @@ internal/
   client/              # thin HTTP client for Plane REST API
   models/              # data structures
   ops/                 # high-level operations (GetProjectByIdentifier, etc.)
-  server/              # MCP server with 13 tool handlers
+  server/              # MCP server with 16 tool handlers
 cmd/plane-mcp-smoke/   # integration test against real Plane API
 ```
 
