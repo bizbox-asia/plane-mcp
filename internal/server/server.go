@@ -156,6 +156,36 @@ func (s *Server) registerTools() {
 		s.handleListCycles,
 	)
 	s.mcpServer.AddTool(
+		mcp.NewTool("create_project",
+			mcp.WithDescription("Create a new project in the workspace."),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Project display name")),
+			mcp.WithString("identifier", mcp.Required(), mcp.Description("Short ID (e.g. TOOLS, AUDIT) - uppercase, 1-10 chars")),
+			mcp.WithString("description", mcp.Description("Project description")),
+			mcp.WithNumber("network", mcp.Description("Network: 0=secret, 1=private, 2=public (default)")),
+		),
+		s.handleCreateProject,
+	)
+	s.mcpServer.AddTool(
+		mcp.NewTool("create_module",
+			mcp.WithDescription("Create a new module in a project."),
+			mcp.WithString("project_id", mcp.Required(), mcp.Description("Project UUID")),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Module name")),
+			mcp.WithString("description", mcp.Description("Module description")),
+			mcp.WithArray("members", mcp.Description("Array of member UUIDs")),
+		),
+		s.handleCreateModule,
+	)
+	s.mcpServer.AddTool(
+		mcp.NewTool("create_cycle",
+			mcp.WithDescription("Create a new cycle in a project."),
+			mcp.WithString("project_id", mcp.Required(), mcp.Description("Project UUID")),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Cycle name")),
+			mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
+			mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD)")),
+		),
+		s.handleCreateCycle,
+	)
+	s.mcpServer.AddTool(
 		mcp.NewTool("health",
 			mcp.WithDescription("Check Plane MCP server health.")),
 		s.handleHealth,
@@ -339,6 +369,91 @@ func (s *Server) handleHealth(ctx context.Context, req mcp.CallToolRequest) (*mc
 		"project_cache": s.ops.CacheStats(),
 		"timestamp":     time.Now().UTC().Format(time.RFC3339),
 	}, nil)
+}
+
+func (s *Server) handleCreateProject(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errResult(err)
+	}
+	identifier, err := req.RequireString("identifier")
+	if err != nil {
+		return errResult(err)
+	}
+	input := models.ProjectCreate{
+		Name:       name,
+		Identifier: identifier,
+	}
+	if desc, ok := req.GetArguments()["description"]; ok {
+		if s, ok := desc.(string); ok {
+			input.Description = s
+		}
+	}
+	if net, ok := req.GetArguments()["network"]; ok {
+		if n, ok := net.(float64); ok {
+			input.Network = int(n)
+		}
+	}
+	p, err := s.ops.CreateProject(ctx, s.workspace, input)
+	return wrapResult(p, err)
+}
+
+func (s *Server) handleCreateModule(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	pid, err := req.RequireString("project_id")
+	if err != nil {
+		return errResult(err)
+	}
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errResult(err)
+	}
+	input := models.ModuleCreate{
+		Name: name,
+	}
+	if desc, ok := req.GetArguments()["description"]; ok {
+		if s, ok := desc.(string); ok {
+			input.Description = s
+		}
+	}
+	if mems, ok := req.GetArguments()["members"]; ok {
+		if arr, ok := mems.([]any); ok {
+			members := make([]string, 0, len(arr))
+			for _, m := range arr {
+				if s, ok := m.(string); ok {
+					members = append(members, s)
+				}
+			}
+			input.Members = members
+		}
+	}
+	m, err := s.ops.CreateModule(ctx, s.workspace, pid, input)
+	return wrapResult(m, err)
+}
+
+func (s *Server) handleCreateCycle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	pid, err := req.RequireString("project_id")
+	if err != nil {
+		return errResult(err)
+	}
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errResult(err)
+	}
+	input := models.CycleCreate{
+		Name: name,
+	}
+	if sd, ok := req.GetArguments()["start_date"]; ok {
+		if s, ok := sd.(string); ok {
+			input.StartDate = s
+		}
+	}
+	if ed, ok := req.GetArguments()["end_date"]; ok {
+		if s, ok := ed.(string); ok {
+			input.EndDate = s
+		}
+	}
+	c, err := s.ops.CreateCycle(ctx, s.workspace, pid, input)
+	return wrapResult(c, err)
 }
 
 // wrapResult is a helper that converts (value, error) into a
